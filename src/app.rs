@@ -1,11 +1,14 @@
 /// Application state and business logic.
 use crate::model::Note;
+use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::FuzzyMatcher;
 
 /// Represents the current mode of the application UI.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Mode {
     Normal,
     Adding,
+    Editing,
     Searching,
     ConfirmDelete,
 }
@@ -24,6 +27,8 @@ pub struct App {
     pub input_buffer: String,
     /// Buffer for search query.
     pub search_query: String,
+    /// Set of multi-selected note IDs for bulk actions.
+    pub multi_selected: std::collections::HashSet<String>,
     /// Whether global view is active.
     pub show_global: bool,
     /// Whether the application should terminate.
@@ -40,6 +45,7 @@ impl App {
             mode: Mode::Normal,
             input_buffer: String::new(),
             search_query: String::new(),
+            multi_selected: std::collections::HashSet::new(),
             show_global: false,
             should_quit: false,
         }
@@ -47,19 +53,32 @@ impl App {
 
     /// Returns a vector of references to notes matching the current search filter.
     pub fn visible_notes(&self) -> Vec<&Note> {
+        if self.search_query.trim().is_empty() {
+            return self.notes.iter().collect();
+        }
+
+        let matcher = SkimMatcherV2::default();
         let query = self.search_query.to_lowercase();
-        self.notes
+
+        let mut matched: Vec<(&Note, i64)> = self
+            .notes
             .iter()
-            .filter(|note| {
-                if query.is_empty() {
-                    return true;
+            .filter_map(|note| {
+                // Check if tags match first
+                let tag_match = note.tags.iter().any(|t| matcher.fuzzy_match(&t.to_lowercase(), &query).is_some());
+                if tag_match {
+                    return Some((note, 100)); // Arbitrary high score for tag matches
                 }
-                if note.text.to_lowercase().contains(&query) {
-                    return true;
-                }
-                note.tags.iter().any(|t| t.to_lowercase().contains(&query))
+                
+                // Then check text
+                matcher.fuzzy_match(&note.text.to_lowercase(), &query).map(|score| (note, score))
             })
-            .collect()
+            .collect();
+
+        // Sort by score descending (stable sort to keep original order for same score)
+        matched.sort_by_key(|b| std::cmp::Reverse(b.1));
+
+        matched.into_iter().map(|(n, _)| n).collect()
     }
 
     fn clamp_selection(&mut self) {
@@ -113,13 +132,75 @@ impl App {
         self.mode = Mode::Normal;
     }
 
-    /// Toggles the 'done' state of the currently selected visible note.
+    /// Transitions to the Editing mode.
+    pub fn start_edit(&mut self) {
+        let visible = self.visible_notes();
+        if self.selected < visible.len() {
+            self.input_buffer = visible[self.selected].text.clone();
+            self.mode = Mode::Editing;
+        }
+    }
+
+    /// Confirms the edit operation.
+    pub fn confirm_edit(&mut self) -> Option<Note> {
+        let text = self.input_buffer.trim();
+        if text.is_empty() {
+            return None;
+        }
+
+        let visible = self.visible_notes();
+        if self.selected < visible.len() {
+            let id = visible[self.selected].id.clone();
+            if let Some(note) = self.notes.iter_mut().find(|n| n.id == id) {
+                note.text = text.to_string();
+                note.tags = crate::model::extract_tags(text);
+                
+                let cloned = note.clone();
+                self.input_buffer.clear();
+                self.mode = Mode::Normal;
+                self.clamp_selection();
+                return Some(cloned);
+            }
+        }
+        None
+    }
+
+    /// Cancels the edit operation.
+    pub fn cancel_edit(&mut self) {
+        self.input_buffer.clear();
+        self.mode = Mode::Normal;
+    }
+
+    /// Toggles the 'done' state of the selected notes.
     pub fn toggle_selected_done(&mut self) {
+        if !self.multi_selected.is_empty() {
+            for note in self.notes.iter_mut() {
+                if self.multi_selected.contains(&note.id) {
+                    note.toggle_done();
+                }
+            }
+            self.multi_selected.clear();
+            return;
+        }
+
         let visible = self.visible_notes();
         if self.selected < visible.len() {
             let id = visible[self.selected].id.clone();
             if let Some(note) = self.notes.iter_mut().find(|n| n.id == id) {
                 note.toggle_done();
+            }
+        }
+    }
+
+    /// Toggles multi-selection for the current cursor note.
+    pub fn toggle_multi_select(&mut self) {
+        let visible = self.visible_notes();
+        if self.selected < visible.len() {
+            let id = visible[self.selected].id.clone();
+            if self.multi_selected.contains(&id) {
+                self.multi_selected.remove(&id);
+            } else {
+                self.multi_selected.insert(id);
             }
         }
     }
@@ -132,11 +213,22 @@ impl App {
         }
     }
 
-    /// Confirms deletion of the selected note.
+    /// Confirms deletion of the selected note(s).
     pub fn confirm_delete(&mut self) -> Option<String> {
         if self.mode != Mode::ConfirmDelete {
             return None;
         }
+        
+        if !self.multi_selected.is_empty() {
+            self.notes.retain(|n| !self.multi_selected.contains(&n.id));
+            self.multi_selected.clear();
+            self.mode = Mode::Normal;
+            self.clamp_selection();
+            // We just return one of the deleted IDs to indicate success.
+            // A more complete implementation would return a Vec<String>.
+            return Some("bulk".to_string());
+        }
+
         let visible = self.visible_notes();
         if self.selected < visible.len() {
             let id = visible[self.selected].id.clone();
@@ -326,5 +418,23 @@ mod tests {
         assert!(!app.show_global);
         app.toggle_global_view();
         assert!(app.show_global);
+    }
+
+    #[test]
+    fn test_edit_flow() {
+        let mut app = setup_app();
+        app.selected = 1; // "second note #tag"
+        
+        app.start_edit();
+        assert_eq!(app.mode, Mode::Editing);
+        assert_eq!(app.input_buffer, "second note #tag");
+
+        app.input_buffer = "edited note #new".to_string();
+        let note = app.confirm_edit();
+        
+        assert!(note.is_some());
+        assert_eq!(app.mode, Mode::Normal);
+        assert_eq!(app.notes[1].text, "edited note #new");
+        assert_eq!(app.notes[1].tags, vec!["new".to_string()]);
     }
 }

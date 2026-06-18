@@ -25,6 +25,10 @@ struct Args {
     /// Override automatic scope detection
     #[arg(short, long)]
     scope: Option<String>,
+
+    /// Export loaded notes to the specified file path (markdown format)
+    #[arg(short, long)]
+    export: Option<PathBuf>,
 }
 
 /// Guard to ensure terminal cleanup on exit or panic.
@@ -66,6 +70,18 @@ fn main() -> io::Result<()> {
 
     let mut app = App::new(current_scope.clone(), notes);
     app.show_global = args.global;
+
+    if let Some(export_path) = args.export {
+        let mut export_content = String::new();
+        export_content.push_str(&format!("# Notes Export: {}\n\n", current_scope));
+        for note in &app.notes {
+            let status = if note.done { "[x]" } else { "[ ]" };
+            export_content.push_str(&format!("- {} {}\n", status, note.text));
+        }
+        std::fs::write(&export_path, export_content)?;
+        println!("Notes exported to {}", export_path.display());
+        return Ok(());
+    }
 
     let _guard = TerminalGuard::setup()?;
     let backend = CrosstermBackend::new(io::stdout());

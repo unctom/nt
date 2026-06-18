@@ -10,6 +10,8 @@ pub fn handle_key(key: KeyEvent, app: &mut App) {
             KeyCode::Char('j') | KeyCode::Down => app.move_selection_down(),
             KeyCode::Char('k') | KeyCode::Up => app.move_selection_up(),
             KeyCode::Char('a') => app.start_add(),
+            KeyCode::Char('e') => app.start_edit(),
+            KeyCode::Char('v') => app.toggle_multi_select(),
             KeyCode::Char(' ') | KeyCode::Char('d') => app.toggle_selected_done(),
             KeyCode::Char('x') => app.start_delete_confirm(),
             KeyCode::Char('/') => app.start_search(),
@@ -21,6 +23,17 @@ pub fn handle_key(key: KeyEvent, app: &mut App) {
                 app.confirm_add();
             }
             KeyCode::Esc => app.cancel_add(),
+            KeyCode::Backspace => {
+                app.input_buffer.pop();
+            }
+            KeyCode::Char(c) => app.input_buffer.push(c),
+            _ => {}
+        },
+        Mode::Editing => match key.code {
+            KeyCode::Enter => {
+                app.confirm_edit();
+            }
+            KeyCode::Esc => app.cancel_edit(),
             KeyCode::Backspace => {
                 app.input_buffer.pop();
             }

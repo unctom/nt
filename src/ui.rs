@@ -24,7 +24,7 @@ pub fn render(f: &mut Frame, app: &App) {
     render_footer(f, app, chunks[2]);
 
     match app.mode {
-        Mode::Adding | Mode::Searching => render_input(f, app),
+        Mode::Adding | Mode::Editing | Mode::Searching => render_input(f, app),
         Mode::ConfirmDelete => render_confirm_delete(f),
         Mode::Normal => {}
     }
@@ -63,7 +63,13 @@ fn render_list(f: &mut Frame, app: &App, area: Rect) {
         .iter()
         .enumerate()
         .map(|(i, note)| {
-            let checkbox = if note.done { "[x]" } else { "[ ]" };
+            let status = if note.done { "[x]" } else { "[ ]" };
+            let prefix = if app.multi_selected.contains(&note.id) { "*" } else { " " };
+            let scope_label = if app.show_global {
+                format!(" ({})", note.scope)
+            } else {
+                String::new()
+            };
 
             let base_style = if note.done {
                 Style::default().fg(Color::DarkGray)
@@ -71,16 +77,30 @@ fn render_list(f: &mut Frame, app: &App, area: Rect) {
                 Style::default()
             };
 
-            let mut spans = vec![Span::styled(format!("{} ", checkbox), base_style)];
-
-            spans.push(Span::styled(&note.text, base_style));
+            let mut spans = vec![
+                Span::styled(format!("{}{} ", prefix, status), if app.multi_selected.contains(&note.id) { Style::default().fg(Color::Yellow) } else { base_style }),
+                Span::styled(&note.text, base_style),
+                Span::styled(scope_label, Style::default().fg(Color::DarkGray)),
+            ];
 
             if !note.tags.is_empty() {
                 spans.push(Span::raw(" "));
                 for tag in &note.tags {
+                    let mut tag_style = Style::default().fg(Color::LightBlue);
+                    if let Some(stripped) = tag.strip_prefix("due:") {
+                        #[allow(clippy::collapsible_if)]
+                        if let Ok(date) = chrono::NaiveDate::parse_from_str(stripped, "%Y-%m-%d") {
+                            let today = chrono::Utc::now().naive_utc().date();
+                            if date < today {
+                                tag_style = tag_style.fg(Color::Red).add_modifier(Modifier::BOLD);
+                            } else if date == today {
+                                tag_style = tag_style.fg(Color::Yellow).add_modifier(Modifier::BOLD);
+                            }
+                        }
+                    }
                     spans.push(Span::styled(
                         format!("#{} ", tag),
-                        Style::default().fg(Color::LightBlue),
+                        tag_style,
                     ));
                 }
             }
@@ -110,10 +130,8 @@ fn render_footer(f: &mut Frame, app: &App, area: Rect) {
 
     let stats = format!("{} total, {} open", total, open);
     let binds = match app.mode {
-        Mode::Normal => {
-            "q/Esc: Quit | j/k: Nav | a: Add | space: Toggle | x: Del | /: Search | g: Global"
-        }
-        Mode::Adding => "Enter: Save | Esc: Cancel",
+        Mode::Normal => "q/Esc: Quit | j/k: Nav | a: Add | e: Edit | v: Select | space: Toggle | x: Del | /: Search | g: Global",
+        Mode::Adding | Mode::Editing => "Enter: Save | Esc: Cancel",
         Mode::Searching => "Enter: Filter | Esc: Clear",
         Mode::ConfirmDelete => "y/Enter: Confirm | n/Esc: Cancel",
     };
@@ -131,6 +149,7 @@ fn render_input(f: &mut Frame, app: &App) {
     let area = centered_rect(60, 20, f.area());
     let (title, content) = match app.mode {
         Mode::Adding => ("Add Note", &app.input_buffer),
+        Mode::Editing => ("Edit Note", &app.input_buffer),
         Mode::Searching => ("Search Notes", &app.search_query),
         _ => ("", &String::new()),
     };
