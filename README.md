@@ -11,7 +11,11 @@
 If you have Rust installed, you can build and install directly from the repository:
 
 ```bash
+<<<<<<< HEAD
 cargo install --git https://github.com/yourusername/nt.git
+=======
+cargo install --git https://github.com/unctom/nt.git
+>>>>>>> 06ac249 (docs: add README and gitignore)
 ```
 
 Make sure your `~/.cargo/bin/` is in your system's `$PATH`.
@@ -19,7 +23,11 @@ Make sure your `~/.cargo/bin/` is in your system's `$PATH`.
 ### Method 2: Clone and Build
 
 ```bash
+<<<<<<< HEAD
 git clone https://github.com/yourusername/nt.git
+=======
+git clone https://github.com/unctom/nt.git
+>>>>>>> 06ac249 (docs: add README and gitignore)
 cd nt
 cargo install --path .
 ```
@@ -36,32 +44,33 @@ cargo install --path .
 
 ## Keybindings
 
-| Mode | Key | Action |
-| --- | --- | --- |
-| **Normal** | `j` / `Down` | Move selection down |
-| **Normal** | `k` / `Up` | Move selection up |
-| **Normal** | `a` | Add a new note |
-| **Normal** | `e` | Edit the selected note |
-| **Normal** | `v` | Toggle selection for bulk actions |
-| **Normal** | `space` / `d`| Toggle 'done' status |
-| **Normal** | `x` | Delete note(s) |
-| **Normal** | `/` | Search/filter notes |
-| **Normal** | `g` | Toggle global view (show all scopes) |
-| **Normal** | `q` / `Esc` | Quit the application |
-| **Adding/Editing** | `Enter` | Save note |
-| **Adding/Editing** | `Esc` | Cancel |
-| **Searching**| `Enter` | Apply filter |
-| **Searching**| `Esc` | Clear search |
-| **Confirm** | `y` / `Enter`| Confirm delete |
-| **Confirm** | `n` / `Esc` | Cancel delete |
+| Mode               | Key           | Action                               |
+| ------------------ | ------------- | ------------------------------------ |
+| **Normal**         | `j` / `Down`  | Move selection down                  |
+| **Normal**         | `k` / `Up`    | Move selection up                    |
+| **Normal**         | `a`           | Add a new note                       |
+| **Normal**         | `e`           | Edit the selected note               |
+| **Normal**         | `v`           | Toggle selection for bulk actions    |
+| **Normal**         | `space` / `d` | Toggle 'done' status                 |
+| **Normal**         | `x`           | Delete note(s)                       |
+| **Normal**         | `/`           | Search/filter notes                  |
+| **Normal**         | `g`           | Toggle global view (show all scopes) |
+| **Normal**         | `q` / `Esc`   | Quit the application                 |
+| **Adding/Editing** | `Enter`       | Save note                            |
+| **Adding/Editing** | `Esc`         | Cancel                               |
+| **Searching**      | `Enter`       | Apply filter                         |
+| **Searching**      | `Esc`         | Clear search                         |
+| **Confirm**        | `y` / `Enter` | Confirm delete                       |
+| **Confirm**        | `n` / `Esc`   | Cancel delete                        |
 
 ## Usage & Exporting
 
 To launch the TUI, simply run `nt` from your terminal.
 
 You can also bypass the TUI and export your notes for the current scope to a Markdown file:
+
 ```bash
-nt --export ./my-notes.md
+nt --export ./project-notes.md
 ```
 
 ## Storage
