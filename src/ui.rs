@@ -61,8 +61,7 @@ fn render_list(f: &mut Frame, app: &App, area: Rect) {
 
     let items: Vec<ListItem> = visible
         .iter()
-        .enumerate()
-        .map(|(i, note)| {
+        .map(|note| {
             let status = if note.done { "[x]" } else { "[ ]" };
             let prefix = if app.multi_selected.contains(&note.id) { "*" } else { " " };
             let scope_label = if app.show_global {
@@ -105,17 +104,14 @@ fn render_list(f: &mut Frame, app: &App, area: Rect) {
                 }
             }
 
-            let mut item = ListItem::new(Line::from(spans));
-            if i == app.selected {
-                item = item.style(Style::default().bg(Color::DarkGray).fg(Color::White));
-            }
+            let item = ListItem::new(Line::from(spans));
             item
         })
         .collect();
 
     let list = List::new(items)
         .block(Block::default().borders(Borders::ALL).title("Notes"))
-        .highlight_style(Style::default().add_modifier(Modifier::BOLD));
+        .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
 
     let mut state = ratatui::widgets::ListState::default();
     state.select(Some(app.selected));
@@ -158,6 +154,12 @@ fn render_input(f: &mut Frame, app: &App) {
     let p = Paragraph::new(content.as_str()).block(block);
     f.render_widget(Clear, area);
     f.render_widget(p, area);
+
+    // Make the cursor visible for input modes
+    f.set_cursor_position((
+        area.x + 1 + content.chars().count() as u16,
+        area.y + 1
+    ));
 }
 
 /// Renders an overlay dialog to confirm note deletion.
