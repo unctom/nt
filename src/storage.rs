@@ -1,8 +1,10 @@
+/// Storage layer for reading and writing notes to JSON files.
 use crate::model::Note;
-use std::fs::{self, File};
+use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+/// Returns the base data directory for the application.
 pub fn data_dir() -> PathBuf {
     dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
@@ -10,6 +12,7 @@ pub fn data_dir() -> PathBuf {
         .join("notes")
 }
 
+/// Loads notes for a given scope from the base directory.
 pub fn load_notes(base: &Path, scope: &str) -> Vec<Note> {
     let file_path = base.join(format!("{}.json", scope));
     if !file_path.exists() {
@@ -20,7 +23,10 @@ pub fn load_notes(base: &Path, scope: &str) -> Vec<Note> {
         Ok(content) => match serde_json::from_str(&content) {
             Ok(notes) => notes,
             Err(e) => {
-                eprintln!("Warning: Failed to parse notes for scope '{}': {}", scope, e);
+                eprintln!(
+                    "Warning: Failed to parse notes for scope '{}': {}",
+                    scope, e
+                );
                 Vec::new()
             }
         },
@@ -31,6 +37,7 @@ pub fn load_notes(base: &Path, scope: &str) -> Vec<Note> {
     }
 }
 
+/// Saves a slice of notes to a JSON file for the given scope, using an atomic rename.
 pub fn save_notes(base: &Path, scope: &str, notes: &[Note]) -> io::Result<()> {
     if !base.exists() {
         fs::create_dir_all(base)?;
@@ -39,15 +46,20 @@ pub fn save_notes(base: &Path, scope: &str, notes: &[Note]) -> io::Result<()> {
     let json = serde_json::to_string_pretty(notes)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
-    let mut temp_file = tempfile::NamedTempFile::new_in(base)?;
-    temp_file.write_all(json.as_bytes())?;
-    
+    let temp_path = base.join(format!("{}.tmp", scope));
     let file_path = base.join(format!("{}.json", scope));
-    temp_file.persist(&file_path).map_err(|e| e.error)?;
+
+    let mut temp_file = fs::File::create(&temp_path)?;
+    temp_file.write_all(json.as_bytes())?;
+    temp_file.sync_all()?;
+
+    fs::rename(temp_path, file_path)?;
 
     Ok(())
 }
 
+/// Lists all available scope names in the base directory.
+#[allow(clippy::collapsible_if)]
 pub fn list_scopes(base: &Path) -> Vec<String> {
     let mut scopes = Vec::new();
     if !base.exists() {
@@ -128,7 +140,7 @@ mod tests {
         let dir = tempdir().unwrap();
         save_notes(dir.path(), "scope1", &[]).unwrap();
         save_notes(dir.path(), "scope2", &[]).unwrap();
-        
+
         let mut scopes = list_scopes(dir.path());
         scopes.sort();
         assert_eq!(scopes, vec!["scope1".to_string(), "scope2".to_string()]);

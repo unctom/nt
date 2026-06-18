@@ -1,5 +1,7 @@
+/// Application state and business logic.
 use crate::model::Note;
 
+/// Represents the current mode of the application UI.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Mode {
     Normal,
@@ -8,18 +10,28 @@ pub enum Mode {
     ConfirmDelete,
 }
 
+/// The main application state containing notes and UI context.
 pub struct App {
+    /// List of notes currently loaded.
     pub notes: Vec<Note>,
+    /// The active scope.
     pub scope: String,
+    /// Selected item index in the visible list.
     pub selected: usize,
+    /// Current input mode.
     pub mode: Mode,
+    /// Buffer for adding a new note.
     pub input_buffer: String,
+    /// Buffer for search query.
     pub search_query: String,
+    /// Whether global view is active.
     pub show_global: bool,
+    /// Whether the application should terminate.
     pub should_quit: bool,
 }
 
 impl App {
+    /// Constructs a new App state.
     pub fn new(scope: String, notes: Vec<Note>) -> Self {
         Self {
             notes,
@@ -33,6 +45,7 @@ impl App {
         }
     }
 
+    /// Returns a vector of references to notes matching the current search filter.
     pub fn visible_notes(&self) -> Vec<&Note> {
         let query = self.search_query.to_lowercase();
         self.notes
@@ -58,6 +71,7 @@ impl App {
         }
     }
 
+    /// Moves the list selection down by one, clamping at the bottom.
     pub fn move_selection_down(&mut self) {
         let count = self.visible_notes().len();
         if count > 0 && self.selected < count - 1 {
@@ -65,17 +79,20 @@ impl App {
         }
     }
 
+    /// Moves the list selection up by one, clamping at the top.
     pub fn move_selection_up(&mut self) {
         if self.selected > 0 {
             self.selected -= 1;
         }
     }
 
+    /// Transitions to the Adding mode.
     pub fn start_add(&mut self) {
         self.mode = Mode::Adding;
         self.input_buffer.clear();
     }
 
+    /// Confirms addition of a new note if the buffer is not empty.
     pub fn confirm_add(&mut self) -> Option<Note> {
         let text = self.input_buffer.trim();
         if text.is_empty() {
@@ -90,11 +107,13 @@ impl App {
         Some(note)
     }
 
+    /// Cancels the add operation.
     pub fn cancel_add(&mut self) {
         self.input_buffer.clear();
         self.mode = Mode::Normal;
     }
 
+    /// Toggles the 'done' state of the currently selected visible note.
     pub fn toggle_selected_done(&mut self) {
         let visible = self.visible_notes();
         if self.selected < visible.len() {
@@ -105,6 +124,7 @@ impl App {
         }
     }
 
+    /// Prepares to delete the selected note.
     pub fn start_delete_confirm(&mut self) {
         let visible = self.visible_notes();
         if self.selected < visible.len() {
@@ -112,6 +132,7 @@ impl App {
         }
     }
 
+    /// Confirms deletion of the selected note.
     pub fn confirm_delete(&mut self) -> Option<String> {
         if self.mode != Mode::ConfirmDelete {
             return None;
@@ -129,25 +150,30 @@ impl App {
         }
     }
 
+    /// Cancels the delete operation.
     pub fn cancel_delete(&mut self) {
         self.mode = Mode::Normal;
     }
 
+    /// Switches to the searching mode.
     pub fn start_search(&mut self) {
         self.mode = Mode::Searching;
     }
 
+    /// Finalizes the search mode.
     pub fn apply_search(&mut self) {
         self.mode = Mode::Normal;
         self.clamp_selection();
     }
 
+    /// Clears the current search query and resets the view.
     pub fn clear_search(&mut self) {
         self.search_query.clear();
         self.mode = Mode::Normal;
         self.clamp_selection();
     }
 
+    /// Toggles between the current scope and global view.
     pub fn toggle_global_view(&mut self) {
         self.show_global = !self.show_global;
         self.clamp_selection();
@@ -160,9 +186,18 @@ mod tests {
 
     fn setup_app() -> App {
         let mut app = App::new("test-scope".to_string(), vec![]);
-        app.notes.push(Note::new("first note".to_string(), "test-scope".to_string()));
-        app.notes.push(Note::new("second note #tag".to_string(), "test-scope".to_string()));
-        app.notes.push(Note::new("third note".to_string(), "test-scope".to_string()));
+        app.notes.push(Note::new(
+            "first note".to_string(),
+            "test-scope".to_string(),
+        ));
+        app.notes.push(Note::new(
+            "second note #tag".to_string(),
+            "test-scope".to_string(),
+        ));
+        app.notes.push(Note::new(
+            "third note".to_string(),
+            "test-scope".to_string(),
+        ));
         app
     }
 
@@ -177,7 +212,7 @@ mod tests {
         let mut app = setup_app();
         app.move_selection_up();
         assert_eq!(app.selected, 0);
-        
+
         app.move_selection_down();
         assert_eq!(app.selected, 1);
         app.move_selection_down();
@@ -191,7 +226,7 @@ mod tests {
         let mut app = App::new("test-scope".to_string(), vec![]);
         app.start_add();
         assert_eq!(app.mode, Mode::Adding);
-        
+
         app.input_buffer.push_str("new note");
         let note = app.confirm_add();
         assert!(note.is_some());
@@ -218,7 +253,7 @@ mod tests {
         assert!(!app.notes[0].done);
         app.toggle_selected_done();
         assert!(app.notes[0].done);
-        
+
         app.move_selection_down();
         app.toggle_selected_done();
         assert!(app.notes[1].done);
@@ -229,10 +264,10 @@ mod tests {
         let mut app = setup_app();
         app.move_selection_down(); // Select second note
         let id_to_delete = app.notes[1].id.clone();
-        
+
         app.start_delete_confirm();
         assert_eq!(app.mode, Mode::ConfirmDelete);
-        
+
         let deleted_id = app.confirm_delete();
         assert_eq!(deleted_id, Some(id_to_delete.clone()));
         assert_eq!(app.notes.len(), 2);
@@ -270,7 +305,7 @@ mod tests {
         let mut app = setup_app();
         app.search_query = "second".to_string();
         app.clamp_selection(); // Emulate apply_search
-        
+
         // Only the second note is visible, selected index 0 corresponds to it.
         app.toggle_selected_done();
         assert!(app.notes[1].done);
@@ -280,7 +315,7 @@ mod tests {
         app.start_delete_confirm();
         let deleted = app.confirm_delete();
         assert_eq!(deleted, Some(id_to_delete.clone()));
-        
+
         assert_eq!(app.notes.len(), 2);
         assert!(!app.notes.iter().any(|n| n.id == id_to_delete));
     }

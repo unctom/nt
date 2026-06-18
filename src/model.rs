@@ -1,18 +1,27 @@
+/// Note and Tag parsing model.
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 
+/// Represents a single note.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Note {
+    /// Unique identifier for the note.
     pub id: String,
+    /// The original text content of the note.
     pub text: String,
+    /// Extracted tags.
     pub tags: Vec<String>,
+    /// The scope this note belongs to.
     pub scope: String,
+    /// Creation timestamp.
     pub created_at: DateTime<Utc>,
+    /// Whether the note is marked as done.
     pub done: bool,
 }
 
 impl Note {
+    /// Creates a new Note with a generated ULID, parsing tags from the text.
     pub fn new(text: String, scope: String) -> Self {
         let tags = extract_tags(&text);
         Self {
@@ -25,11 +34,14 @@ impl Note {
         }
     }
 
+    /// Toggles the done state of the note.
     pub fn toggle_done(&mut self) {
         self.done = !self.done;
     }
 }
 
+/// Extracts tags from a given text string.
+/// Tags are alphanumeric strings prefixed with a `#`.
 pub fn extract_tags(text: &str) -> Vec<String> {
     let mut tags = Vec::new();
     let mut current_tag = String::new();
@@ -47,11 +59,7 @@ pub fn extract_tags(text: &str) -> Vec<String> {
                     }
                 }
                 current_tag.clear();
-                if c == '#' {
-                    in_tag = true;
-                } else {
-                    in_tag = false;
-                }
+                in_tag = c == '#';
             }
         } else if c == '#' {
             in_tag = true;

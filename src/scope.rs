@@ -1,5 +1,9 @@
+/// Detects and sanitizes the scope based on the current directory.
 use std::path::Path;
 
+/// Detects the scope by walking up to find a `.git` directory,
+/// or using the basename of the current directory.
+#[allow(clippy::collapsible_if)]
 pub fn detect_scope(cwd: &Path) -> String {
     for ancestor in cwd.ancestors() {
         if ancestor.join(".git").is_dir() {
@@ -16,11 +20,9 @@ pub fn detect_scope(cwd: &Path) -> String {
     "_global".to_string()
 }
 
+/// Sanitizes a string for use as a filename.
 fn sanitize_scope_name(name: &str) -> String {
-    name.replace(
-        |c| matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|'),
-        "_",
-    )
+    name.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_")
 }
 
 #[cfg(test)]
@@ -55,7 +57,10 @@ mod tests {
     #[test]
     fn test_sanitize_scope_name() {
         assert_eq!(sanitize_scope_name("normal_name"), "normal_name");
-        assert_eq!(sanitize_scope_name("my:weird/repo*name?"), "my_weird_repo_name_");
+        assert_eq!(
+            sanitize_scope_name("my:weird/repo*name?"),
+            "my_weird_repo_name_"
+        );
         assert_eq!(sanitize_scope_name("a\\b|c<d>e\"f"), "a_b_c_d_e_f");
     }
 
