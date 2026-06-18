@@ -11,7 +11,6 @@
 If you have Rust installed, you can build and install directly from the repository:
 
 ```bash
-cargo install --git https://github.com/yourusername/nt.git
 cargo install --git https://github.com/unctom/nt.git
 ```
 
@@ -20,7 +19,6 @@ Make sure your `~/.cargo/bin/` is in your system's `$PATH`.
 ### Method 2: Clone and Build
 
 ```bash
-git clone https://github.com/yourusername/nt.git
 git clone https://github.com/unctom/nt.git
 cd nt
 cargo install --path .
